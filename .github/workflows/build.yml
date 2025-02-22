@@ -1,20 +1,30 @@
 name: Run Makefile
 
 on:
-
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-13
+    env:
+      LDID_URL: https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_macosx_x86_64
+      LDID_INSTALL_PATH: /usr/local/bin/ldid
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Install dependencies (packages)
+      - name: Cache Homebrew
+        uses: actions/cache@v3
+        with:
+          path: /Users/runner/Library/Caches/Homebrew
+          key: ${{ runner.os }}-brew-${{ hashFiles('**/Brewfile') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-
+
+      - name: Install dependencies
         run: |
-          curl -LO https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_macosx_x86_64
-          sudo install -m755 ldid_macosx_x86_64 /usr/local/bin/ldid
+          curl -LO ${{ env.LDID_URL }}
+          sudo install -m755 ldid_macosx_x86_64 ${{ env.LDID_INSTALL_PATH }}
           brew install 7zip gnu-sed
 
       - name: List Xcode installations
@@ -30,6 +40,13 @@ jobs:
         run: make PLATFORM=iphoneos SCHEME=palera1nLoader package
 
       - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: packages/
+          retention-days: 5
+
+      - name: Upload artifact via SFTP
         uses: wangyucode/sftp-upload-action@v1.4.8
         with:
           host: ${{ secrets.STATIC_FTP_HOST }}
@@ -40,4 +57,3 @@ jobs:
           dryRun: false
           localDir: 'packages/'
           remoteDir: '/artifacts/loader/universal_lite'
-
